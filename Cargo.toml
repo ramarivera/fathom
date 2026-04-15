@@ -1,6 +1,6 @@
 [package]
-name = "fathom"
-version = "0.1.0"
+name = "fathom-mcp"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.75"
 description = "CLI + MCP server wrapping the OpenAI Deep Research API"
@@ -16,12 +16,6 @@ rmcp = { version = "1.1", features = [
     "transport-io",
     "transport-streamable-http-server",
 ] }
-
-# HTTP client (for OpenAI API calls)
-reqwest = { version = "0.12", features = [
-    "json",
-    "rustls-tls",
-], default-features = false }
 
 # HTTP server (for MCP SSE/HTTP transport + auth middleware)
 axum = "0.8"
@@ -51,6 +45,25 @@ tower = { version = "0.5", features = ["filter"] }
 
 # Utilities
 url = "2"
+
+# HTTP client (for OpenAI API calls)
+# Cross-reference: Windows ARM builds currently fail through reqwest -> rustls -> ring.
+# Use platform-native TLS on Windows to avoid the ring native build path there.
+[target.'cfg(windows)'.dependencies]
+reqwest = { version = "0.12", features = [
+    "json",
+    "native-tls",
+], default-features = false }
+
+[target.'cfg(not(windows))'.dependencies]
+reqwest = { version = "0.12", features = [
+    "json",
+    "rustls-tls",
+], default-features = false }
+
+[[bin]]
+name = "fathom"
+path = "src/main.rs"
 
 [dev-dependencies]
 wiremock = "0.6"

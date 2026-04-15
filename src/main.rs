@@ -7,10 +7,10 @@ use clap::Parser;
 use rmcp::{ServiceExt, transport::stdio};
 use tracing_subscriber::EnvFilter;
 
-use fathom::api::client::{CreateOptions, DeepResearchClient};
-use fathom::api::types::{DeepResearchModel, SearchContextSize};
-use fathom::cli::{Cli, Command, ContextSize, ModelChoice, TransportMode};
-use fathom::mcp::server::FathomServer;
+use fathom_mcp::api::client::{CreateOptions, DeepResearchClient};
+use fathom_mcp::api::types::{DeepResearchModel, SearchContextSize};
+use fathom_mcp::cli::{Cli, Command, ContextSize, ModelChoice, TransportMode};
+use fathom_mcp::mcp::server::FathomServer;
 
 #[tokio::main]
 async fn main() -> Result<()> {

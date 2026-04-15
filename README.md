@@ -14,6 +14,12 @@ Fathom exposes the full power of OpenAI's deep research models (`o3-deep-researc
 ## Installation
 
 ```bash
+cargo install fathom-mcp
+```
+
+For local development:
+
+```bash
 cargo install --path .
 ```
 
