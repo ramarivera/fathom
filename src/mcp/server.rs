@@ -10,10 +10,9 @@
 //! support web search configuration (user location, context size).
 
 use rmcp::{
-    ErrorData as McpError, ServerHandler,
     handler::server::{router::tool::ToolRouter, wrapper::Parameters},
     model::{CallToolResult, Content, ServerCapabilities, ServerInfo},
-    schemars, tool, tool_handler, tool_router,
+    schemars, tool, tool_handler, tool_router, ErrorData as McpError, ServerHandler,
 };
 use serde::Deserialize;
 
@@ -47,8 +46,10 @@ pub struct CreateResearchParams {
     #[schemars(description = "Region/state for web search localization")]
     pub region: Option<String>,
 
-    /// Web search context depth: "low", "medium", or "high".
-    #[schemars(description = "Web search context depth: 'low', 'medium', or 'high'")]
+    /// Web search context depth. Deep Research currently supports only "medium".
+    #[schemars(
+        description = "Web search context depth. Deep Research currently supports only 'medium'; omit this field unless you need to pass 'medium' explicitly."
+    )]
     pub search_context_size: Option<String>,
 
     /// Whether to enable the code interpreter tool during research.
@@ -123,9 +124,7 @@ impl FathomServer {
         };
 
         let search_context_size = params.search_context_size.as_deref().and_then(|s| match s {
-            "low" => Some(SearchContextSize::Low),
             "medium" => Some(SearchContextSize::Medium),
-            "high" => Some(SearchContextSize::High),
             _ => None,
         });
 
@@ -144,7 +143,9 @@ impl FathomServer {
             .client
             .create(&params.query, model, options)
             .await
-            .map_err(|e| McpError::internal_error(format!("Failed to create research: {e}"), None))?;
+            .map_err(|e| {
+                McpError::internal_error(format!("Failed to create research: {e}"), None)
+            })?;
 
         let result = serde_json::json!({
             "response_id": response.id,
@@ -308,13 +309,12 @@ impl FathomServer {
 #[tool_handler]
 impl ServerHandler for FathomServer {
     fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
-            .with_instructions(
-                "Fathom: Deep Research API wrapper. Use create_research to start a job, \
+        ServerInfo::new(ServerCapabilities::builder().enable_tools().build()).with_instructions(
+            "Fathom: Deep Research API wrapper. Use create_research to start a job, \
                  check_status to monitor progress, and get_results to retrieve the full \
                  report with citations and intermediate research steps."
-                    .to_string(),
-            )
+                .to_string(),
+        )
     }
 }
 
@@ -442,10 +442,7 @@ mod tests {
         let instructions = info
             .instructions
             .expect("ServerInfo should have instructions");
-        assert!(
-            !instructions.is_empty(),
-            "instructions should not be empty"
-        );
+        assert!(!instructions.is_empty(), "instructions should not be empty");
         // Spot-check that the instructions mention the key tools.
         assert!(
             instructions.contains("create_research"),
@@ -491,7 +488,7 @@ mod tests {
             "country": "US",
             "city": "San Francisco",
             "region": "California",
-            "search_context_size": "high",
+            "search_context_size": "medium",
             "code_interpreter": true,
             "instructions": "Be concise."
         })
@@ -505,7 +502,7 @@ mod tests {
         assert_eq!(params.country.as_deref(), Some("US"));
         assert_eq!(params.city.as_deref(), Some("San Francisco"));
         assert_eq!(params.region.as_deref(), Some("California"));
-        assert_eq!(params.search_context_size.as_deref(), Some("high"));
+        assert_eq!(params.search_context_size.as_deref(), Some("medium"));
         assert_eq!(params.code_interpreter, Some(true));
         assert_eq!(params.instructions.as_deref(), Some("Be concise."));
     }
@@ -556,14 +553,11 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path("/responses"))
-            .respond_with(
-                ResponseTemplate::new(200).set_body_json(queued_response_json()),
-            )
+            .respond_with(ResponseTemplate::new(200).set_body_json(queued_response_json()))
             .mount(&mock_server)
             .await;
 
-        let client =
-            DeepResearchClient::with_base_url("test-key", &mock_server.uri()).unwrap();
+        let client = DeepResearchClient::with_base_url("test-key", &mock_server.uri()).unwrap();
         let server = FathomServer::new(client);
 
         let params = CreateResearchParams {
@@ -583,7 +577,10 @@ mod tests {
             .expect("create_research should succeed");
 
         // The result must be a success (not an error).
-        assert!(!result.is_error.unwrap_or(false), "result should not be an error");
+        assert!(
+            !result.is_error.unwrap_or(false),
+            "result should not be an error"
+        );
 
         // Extract the text content and verify it contains the response_id.
         let text = result
@@ -616,14 +613,11 @@ mod tests {
 
         Mock::given(method("GET"))
             .and(path("/responses/resp_test123"))
-            .respond_with(
-                ResponseTemplate::new(200).set_body_json(in_progress_response_json()),
-            )
+            .respond_with(ResponseTemplate::new(200).set_body_json(in_progress_response_json()))
             .mount(&mock_server)
             .await;
 
-        let client =
-            DeepResearchClient::with_base_url("test-key", &mock_server.uri()).unwrap();
+        let client = DeepResearchClient::with_base_url("test-key", &mock_server.uri()).unwrap();
         let server = FathomServer::new(client);
 
         let params = CheckStatusParams {
@@ -635,7 +629,10 @@ mod tests {
             .await
             .expect("check_status should succeed");
 
-        assert!(!result.is_error.unwrap_or(false), "result should not be an error");
+        assert!(
+            !result.is_error.unwrap_or(false),
+            "result should not be an error"
+        );
 
         let text = result
             .content
@@ -672,14 +669,11 @@ mod tests {
 
         Mock::given(method("GET"))
             .and(path("/responses/resp_test123"))
-            .respond_with(
-                ResponseTemplate::new(200).set_body_json(completed_response_json()),
-            )
+            .respond_with(ResponseTemplate::new(200).set_body_json(completed_response_json()))
             .mount(&mock_server)
             .await;
 
-        let client =
-            DeepResearchClient::with_base_url("test-key", &mock_server.uri()).unwrap();
+        let client = DeepResearchClient::with_base_url("test-key", &mock_server.uri()).unwrap();
         let server = FathomServer::new(client);
 
         let params = GetResultsParams {
@@ -692,7 +686,10 @@ mod tests {
             .await
             .expect("get_results should succeed");
 
-        assert!(!result.is_error.unwrap_or(false), "result should not be an error");
+        assert!(
+            !result.is_error.unwrap_or(false),
+            "result should not be an error"
+        );
 
         let text = result
             .content

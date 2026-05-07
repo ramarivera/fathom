@@ -51,7 +51,7 @@ pub enum Command {
         #[arg(long)]
         region: Option<String>,
 
-        /// Web search context depth.
+        /// Web search context depth. Deep Research currently supports only "medium".
         #[arg(long)]
         search_context_size: Option<ContextSize>,
 
@@ -110,12 +110,10 @@ pub enum ModelChoice {
     O4Mini,
 }
 
-/// Web search context size choices.
+/// Web search context size choices supported by Deep Research.
 #[derive(Debug, Clone, ValueEnum)]
 pub enum ContextSize {
-    Low,
     Medium,
-    High,
 }
 
 /// MCP server transport mode.

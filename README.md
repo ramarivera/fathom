@@ -7,7 +7,7 @@ Fathom exposes the full power of OpenAI's deep research models (`o3-deep-researc
 ## Features
 
 - **Full intermediate output** — every web search, reasoning summary, MCP tool call, code interpreter call, and file search call is preserved and returned, not just the final report.
-- **Web search configuration** — set user location (country, city, region) and search context size (low/medium/high) to tune research quality.
+- **Web search configuration** — set user location (country, city, region). Deep Research currently accepts only `medium` search context size, so Fathom rejects unsupported values locally instead of letting the API fail.
 - **Dual-transport MCP server** — stdio (for local agents like OpenCode/Claude Code) and HTTP with optional bearer token auth (for remote access).
 - **Standalone CLI** — create, poll, and retrieve deep research jobs without needing an MCP client.
 
@@ -55,8 +55,8 @@ fathom research --model o4-mini "Summarize recent advances in CRISPR gene editin
 # Configure web search location
 fathom research --country US --city "San Francisco" --region California "Local AI startup funding trends"
 
-# Set search context size
-fathom research --search-context-size high "Comprehensive review of quantum error correction"
+# Explicitly set the only Deep Research-supported search context size
+fathom research --search-context-size medium "Comprehensive review of quantum error correction"
 
 # Check job status
 fathom status resp_abc123

@@ -4,7 +4,7 @@
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use rmcp::{ServiceExt, transport::stdio};
+use rmcp::{transport::stdio, ServiceExt};
 use tracing_subscriber::EnvFilter;
 
 use fathom_mcp::api::client::{CreateOptions, DeepResearchClient};
@@ -100,9 +100,7 @@ async fn cmd_research(
     };
 
     let context_size = search_context_size.map(|s| match s {
-        ContextSize::Low => SearchContextSize::Low,
         ContextSize::Medium => SearchContextSize::Medium,
-        ContextSize::High => SearchContextSize::High,
     });
 
     let options = CreateOptions {
@@ -180,7 +178,10 @@ async fn cmd_status(client: &DeepResearchClient, response_id: &str) -> Result<()
     }
 
     if response.is_terminal() {
-        eprintln!("\nJob complete. Use `fathom results {}` to get the report.", response_id);
+        eprintln!(
+            "\nJob complete. Use `fathom results {}` to get the report.",
+            response_id
+        );
     } else {
         eprintln!("\nJob still running. Check again in 10-30 seconds.");
     }

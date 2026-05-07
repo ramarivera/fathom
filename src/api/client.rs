@@ -59,27 +59,32 @@ impl DeepResearchClient {
         model: DeepResearchModel,
         options: CreateOptions,
     ) -> Result<Response> {
+        if let Some(size) = &options.search_context_size {
+            anyhow::ensure!(
+                matches!(size, SearchContextSize::Medium),
+                "Deep research only supports search_context_size 'medium'; omit the option or use 'medium'"
+            );
+        }
+
         let mut tools: Vec<Tool> = Vec::new();
 
         // Web search is always included for deep research.
-        let user_location = if options.country.is_some()
-            || options.city.is_some()
-            || options.region.is_some()
-        {
-            let mut loc = UserLocation::new();
-            if let Some(c) = &options.country {
-                loc = loc.with_country(c.as_str());
-            }
-            if let Some(c) = &options.city {
-                loc = loc.with_city(c.as_str());
-            }
-            if let Some(r) = &options.region {
-                loc = loc.with_region(r.as_str());
-            }
-            Some(loc)
-        } else {
-            None
-        };
+        let user_location =
+            if options.country.is_some() || options.city.is_some() || options.region.is_some() {
+                let mut loc = UserLocation::new();
+                if let Some(c) = &options.country {
+                    loc = loc.with_country(c.as_str());
+                }
+                if let Some(c) = &options.city {
+                    loc = loc.with_city(c.as_str());
+                }
+                if let Some(r) = &options.region {
+                    loc = loc.with_region(r.as_str());
+                }
+                Some(loc)
+            } else {
+                None
+            };
 
         tools.push(Tool::WebSearchPreview {
             user_location,
@@ -314,14 +319,20 @@ mod tests {
     #[tokio::test]
     async fn client_new_succeeds() {
         let result = DeepResearchClient::new("test-key");
-        assert!(result.is_ok(), "DeepResearchClient::new should succeed with a valid key");
+        assert!(
+            result.is_ok(),
+            "DeepResearchClient::new should succeed with a valid key"
+        );
     }
 
     #[tokio::test]
     async fn client_with_base_url_succeeds() {
         let mock_server = MockServer::start().await;
         let result = DeepResearchClient::with_base_url("test-key", &mock_server.uri());
-        assert!(result.is_ok(), "with_base_url should succeed with a valid URL");
+        assert!(
+            result.is_ok(),
+            "with_base_url should succeed with a valid URL"
+        );
     }
 
     #[tokio::test]
@@ -343,7 +354,11 @@ mod tests {
             .expect("client construction should succeed");
 
         let result = client
-            .create("test query", DeepResearchModel::O3, CreateOptions::default())
+            .create(
+                "test query",
+                DeepResearchModel::O3,
+                CreateOptions::default(),
+            )
             .await;
 
         assert!(
@@ -363,9 +378,18 @@ mod tests {
         assert!(opts.country.is_none(), "country should default to None");
         assert!(opts.city.is_none(), "city should default to None");
         assert!(opts.region.is_none(), "region should default to None");
-        assert!(opts.search_context_size.is_none(), "search_context_size should default to None");
-        assert!(!opts.code_interpreter, "code_interpreter should default to false");
-        assert!(opts.instructions.is_none(), "instructions should default to None");
+        assert!(
+            opts.search_context_size.is_none(),
+            "search_context_size should default to None"
+        );
+        assert!(
+            !opts.code_interpreter,
+            "code_interpreter should default to false"
+        );
+        assert!(
+            opts.instructions.is_none(),
+            "instructions should default to None"
+        );
         assert!(opts.store.is_none(), "store should default to None");
         assert!(opts.metadata.is_none(), "metadata should default to None");
     }
@@ -388,13 +412,21 @@ mod tests {
             .expect("client construction should succeed");
 
         client
-            .create("What is the capital of France?", DeepResearchModel::O3, CreateOptions::default())
+            .create(
+                "What is the capital of France?",
+                DeepResearchModel::O3,
+                CreateOptions::default(),
+            )
             .await
             .expect("create should succeed");
 
         // Retrieve the captured request and inspect its body.
         let received = mock_server.received_requests().await.unwrap();
-        assert_eq!(received.len(), 1, "exactly one request should have been sent");
+        assert_eq!(
+            received.len(),
+            1,
+            "exactly one request should have been sent"
+        );
 
         let body: serde_json::Value =
             serde_json::from_slice(&received[0].body).expect("request body should be valid JSON");
@@ -422,13 +454,24 @@ mod tests {
 
         // input must contain a user message with the query
         let input = body["input"].as_array().expect("input should be an array");
-        assert_eq!(input.len(), 1, "default options should produce exactly one input message");
+        assert_eq!(
+            input.len(),
+            1,
+            "default options should produce exactly one input message"
+        );
         assert_eq!(input[0]["role"], serde_json::json!("user"));
-        assert_eq!(input[0]["content"], serde_json::json!("What is the capital of France?"));
+        assert_eq!(
+            input[0]["content"],
+            serde_json::json!("What is the capital of France?")
+        );
 
         // tools must contain web_search_preview
         let tools = body["tools"].as_array().expect("tools should be an array");
-        assert_eq!(tools.len(), 1, "default options should produce exactly one tool");
+        assert_eq!(
+            tools.len(),
+            1,
+            "default options should produce exactly one tool"
+        );
         assert_eq!(tools[0]["type"], serde_json::json!("web_search_preview"));
     }
 
@@ -506,11 +549,18 @@ mod tests {
             serde_json::from_slice(&received[0].body).expect("request body should be valid JSON");
 
         let input = body["input"].as_array().expect("input should be an array");
-        assert_eq!(input.len(), 2, "instructions + query should produce two input messages");
+        assert_eq!(
+            input.len(),
+            2,
+            "instructions + query should produce two input messages"
+        );
 
         // Developer message must come first.
         assert_eq!(input[0]["role"], serde_json::json!("developer"));
-        assert_eq!(input[0]["content"], serde_json::json!("Be concise and cite sources."));
+        assert_eq!(
+            input[0]["content"],
+            serde_json::json!("Be concise and cite sources.")
+        );
 
         // User message must come second.
         assert_eq!(input[1]["role"], serde_json::json!("user"));
@@ -545,13 +595,56 @@ mod tests {
             serde_json::from_slice(&received[0].body).expect("request body should be valid JSON");
 
         let tools = body["tools"].as_array().expect("tools should be an array");
-        assert_eq!(tools.len(), 2, "code_interpreter=true should produce two tools");
+        assert_eq!(
+            tools.len(),
+            2,
+            "code_interpreter=true should produce two tools"
+        );
 
         let has_web_search = tools.iter().any(|t| t["type"] == "web_search_preview");
         let has_code_interpreter = tools.iter().any(|t| t["type"] == "code_interpreter");
 
         assert!(has_web_search, "tools should include web_search_preview");
-        assert!(has_code_interpreter, "tools should include code_interpreter");
+        assert!(
+            has_code_interpreter,
+            "tools should include code_interpreter"
+        );
+    }
+
+    #[tokio::test]
+    async fn create_rejects_non_medium_search_context_size_before_request() {
+        let mock_server = MockServer::start().await;
+
+        Mock::given(method("POST"))
+            .and(path("/responses"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(queued_response_json()))
+            .mount(&mock_server)
+            .await;
+
+        let client = DeepResearchClient::with_base_url("test-key", &mock_server.uri())
+            .expect("client construction should succeed");
+
+        let opts = CreateOptions {
+            search_context_size: Some(SearchContextSize::Low),
+            ..Default::default()
+        };
+
+        let err = client
+            .create("test query", DeepResearchModel::O3, opts)
+            .await
+            .expect_err("low search context should be rejected locally");
+
+        assert!(
+            err.to_string()
+                .contains("only supports search_context_size 'medium'"),
+            "error should explain the supported Deep Research search context size: {err}"
+        );
+
+        let received = mock_server.received_requests().await.unwrap();
+        assert!(
+            received.is_empty(),
+            "invalid search context size should not send an API request"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -572,14 +665,21 @@ mod tests {
             .expect("client construction should succeed");
 
         let response = client
-            .create("test query", DeepResearchModel::O3, CreateOptions::default())
+            .create(
+                "test query",
+                DeepResearchModel::O3,
+                CreateOptions::default(),
+            )
             .await
             .expect("create should succeed with 200 response");
 
         assert_eq!(response.id, "resp_test123");
         assert_eq!(response.object, "response");
         assert_eq!(response.status, ResponseStatus::Queued);
-        assert!(response.output.is_empty(), "queued response should have empty output");
+        assert!(
+            response.output.is_empty(),
+            "queued response should have empty output"
+        );
         assert_eq!(response.model, "o3-deep-research-2025-06-26");
         assert!((response.created_at - 1700000000.0).abs() < f64::EPSILON);
         assert!(response.error.is_none());
@@ -592,10 +692,9 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path("/responses"))
-            .respond_with(
-                ResponseTemplate::new(400)
-                    .set_body_string(r#"{"error":{"message":"Invalid request","type":"invalid_request_error"}}"#),
-            )
+            .respond_with(ResponseTemplate::new(400).set_body_string(
+                r#"{"error":{"message":"Invalid request","type":"invalid_request_error"}}"#,
+            ))
             .mount(&mock_server)
             .await;
 
@@ -603,7 +702,11 @@ mod tests {
             .expect("client construction should succeed");
 
         let result = client
-            .create("test query", DeepResearchModel::O3, CreateOptions::default())
+            .create(
+                "test query",
+                DeepResearchModel::O3,
+                CreateOptions::default(),
+            )
             .await;
 
         assert!(result.is_err(), "create should return Err on HTTP 400");
@@ -620,9 +723,7 @@ mod tests {
 
         Mock::given(method("POST"))
             .and(path("/responses"))
-            .respond_with(
-                ResponseTemplate::new(500).set_body_string("Internal Server Error"),
-            )
+            .respond_with(ResponseTemplate::new(500).set_body_string("Internal Server Error"))
             .mount(&mock_server)
             .await;
 
@@ -630,7 +731,11 @@ mod tests {
             .expect("client construction should succeed");
 
         let result = client
-            .create("test query", DeepResearchModel::O3, CreateOptions::default())
+            .create(
+                "test query",
+                DeepResearchModel::O3,
+                CreateOptions::default(),
+            )
             .await;
 
         assert!(result.is_err(), "create should return Err on HTTP 500");
@@ -665,16 +770,25 @@ mod tests {
 
         assert_eq!(response.id, "resp_completed456");
         assert_eq!(response.status, ResponseStatus::Completed);
-        assert_eq!(response.output.len(), 3, "completed response should have 3 output items");
+        assert_eq!(
+            response.output.len(),
+            3,
+            "completed response should have 3 output items"
+        );
 
         // Verify usage is present.
-        let usage = response.usage.as_ref().expect("completed response should have usage");
+        let usage = response
+            .usage
+            .as_ref()
+            .expect("completed response should have usage");
         assert_eq!(usage.input_tokens, 100);
         assert_eq!(usage.output_tokens, 500);
         assert_eq!(usage.total_tokens, 600);
 
         // Verify final_report helper works.
-        let report = response.final_report().expect("should extract final report text");
+        let report = response
+            .final_report()
+            .expect("should extract final report text");
         assert_eq!(report, "Here is the report...");
 
         // Verify citations helper works.
@@ -696,10 +810,9 @@ mod tests {
 
         Mock::given(method("GET"))
             .and(path("/responses/resp_notfound"))
-            .respond_with(
-                ResponseTemplate::new(404)
-                    .set_body_string(r#"{"error":{"message":"Response not found","type":"not_found_error"}}"#),
-            )
+            .respond_with(ResponseTemplate::new(404).set_body_string(
+                r#"{"error":{"message":"Response not found","type":"not_found_error"}}"#,
+            ))
             .mount(&mock_server)
             .await;
 
@@ -773,7 +886,10 @@ mod tests {
         assert!(response.is_terminal(), "failed status should be terminal");
 
         // Verify the error field is populated.
-        let error = response.error.as_ref().expect("failed response should have error details");
+        let error = response
+            .error
+            .as_ref()
+            .expect("failed response should have error details");
         assert_eq!(error.code, "server_error");
         assert!(!error.message.is_empty());
 
